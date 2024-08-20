@@ -1,4 +1,4 @@
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::rc::Rc;
 use std::env;
@@ -22,7 +22,7 @@ use color::Color;
 use cube::Cube;
 use cylindre::Cylinder;
 use hittable_list::HittableList;
-use material::{Lambertian, Metal};
+use material::{Dielectric, Lambertian, Metal};
 // use plane::Plane;
 use ray::Ray;
 use rectangle::Rectangle;
@@ -91,7 +91,7 @@ fn create_ground_scene() -> HittableList {
 
 fn create_cube_scene() -> HittableList {
     let mut world = create_ground_scene();
-    let cube_material = Rc::new(Metal::new(Color::new(0.8, 0.3, 0.3), 0.0));
+    let cube_material = Rc::new(Metal::new(Color::new(0.8, 0.3, 0.3), 0.1));
     let cube = Cube::new(
         Point3::new(-1.0, 0.0, -1.0),
         Point3::new(1.0, 2.0, 1.0),
@@ -128,7 +128,8 @@ fn create_sphere_scene() -> HittableList {
 
 fn create_plane_scene() -> HittableList {
     let mut world = create_ground_scene();
-    let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
+    // let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
+    let plane_material = Rc::new(Dielectric::new(0.3));
     let rect = Rectangle::new(
         Point3::new(0.0, -0.0001, -2.0),  // Positionnement plus bas
         Vec3::new(2.0, 0.0, 0.0),        // Largeur
@@ -164,7 +165,7 @@ fn create_flat_plane_and_cube() -> HittableList {
     let mut world = create_ground_scene();
 
     // Ajout du cube
-    let cube_material = Rc::new(Metal::new(Color::new(0.8, 0.3, 0.3), 0.0));
+    let cube_material = Rc::new(Metal::new(Color::new(0.8, 0.3, 0.3), 0.1));
     let cube = Cube::new(
         Point3::new(-1.0, 0.0, -1.0),
         Point3::new(1.0, 2.0, 1.0),
@@ -174,7 +175,8 @@ fn create_flat_plane_and_cube() -> HittableList {
 
 
     // Ajout de la surface plane
-    let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
+    // let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
+    let plane_material = Rc::new(Dielectric::new(0.3));
     let rect = Rectangle::new(
         Point3::new(0.0, -0.0001, -2.0),  
         Vec3::new(2.0, 0.0, 0.0),
@@ -190,7 +192,7 @@ fn create_world_with_scene() -> HittableList {
     let mut world = create_ground_scene();
 
     // Ajout du cube
-    let cube_material = Rc::new(Metal::new(Color::new(0.8, 0.3, 0.3), 0.0));
+    let cube_material = Rc::new(Metal::new(Color::new(0.8, 0.3, 0.3), 0.1));
     let cube = Cube::new(
         Point3::new(-1.0, 0.0, -1.0),
         Point3::new(1.0, 2.0, 1.0),
@@ -222,7 +224,8 @@ fn create_world_with_scene() -> HittableList {
 
 
     // Ajout de la surface plane
-    let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
+    // let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
+    let plane_material = Rc::new(Dielectric::new(0.3));
     let rect = Rectangle::new(
         Point3::new(0.0, -0.0001, -2.0),  
         Vec3::new(2.0, 0.0, 0.0),
@@ -244,6 +247,12 @@ fn main() {
         return;
     }
 
+    // Vérification et création du dossier 'image'
+    let output_dir = "image";
+    if fs::metadata(output_dir).is_err() {
+        fs::create_dir_all(output_dir).expect("Failed to create 'image' directory");
+    }
+
     // Configuration commune de la caméra et du rendu
     const ASPECT_RATIO: f64 = 16.0 / 9.0;
     const IMAGE_WIDTH: i32 = 400;
@@ -251,8 +260,8 @@ fn main() {
     const SAMPLES_PER_PIXEL: i32 = 100;
     const MAX_DEPTH: i32 = 50;
 
-    let lookfrom = Point3::new(-6.0, 4.0, -10.0);
-    let lookat = Point3::new(0.0, 1.0, 0.0);
+    let lookfrom = Point3::new(6.0, 8.0, -20.0);
+    let lookat = Point3::new(-7.0, 1.0, 0.0);
     let vup = Vec3::new(0.0, 1.0, 0.0);
     let dist_to_focus = 10.0;
     let aperture = 0.0;
@@ -260,7 +269,7 @@ fn main() {
         lookfrom,
         lookat,
         vup,
-        20.0,
+        40.0,
         ASPECT_RATIO,
         aperture,
         dist_to_focus,
