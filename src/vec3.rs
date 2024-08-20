@@ -12,6 +12,15 @@ impl Vec3 {
     pub fn new(x: f64, y: f64, z: f64) -> Vec3 {
         Vec3 { e: [x, y, z] }
     }
+    pub fn cross(&self, other: &Vec3) -> Vec3 {
+        Vec3 {
+            e: [
+                self.y() * other.z() - self.z() * other.y(),
+                self.z() * other.x() - self.x() * other.z(),
+                self.x() * other.y() - self.y() * other.x(),
+            ],
+        }
+    }
  
     pub fn random() -> Vec3 {
         Vec3::new(

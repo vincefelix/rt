@@ -1,3 +1,8 @@
+use std::fs::File;
+use std::io::{BufWriter, Write};
+use std::rc::Rc;
+use std::env;
+
 mod camera;
 mod color;
 mod common;
@@ -6,34 +11,30 @@ mod cylindre;
 mod hittable;
 mod hittable_list;
 mod material;
-mod plane;
+// mod plane;
 mod ray;
+mod rectangle;
 mod sphere;
 mod vec3;
 
-use std::io;
-use std::rc::Rc;
-
-use crate::vec3::Vec3;
 use camera::Camera;
 use color::Color;
 use cube::Cube;
 use cylindre::Cylinder;
-use hittable::{HitRecord, Hittable};
 use hittable_list::HittableList;
-use material::{Dielectric, Lambertian, Metal};
-use plane::Plane;
+use material::{Lambertian, Metal};
+// use plane::Plane;
 use ray::Ray;
+use rectangle::Rectangle;
 use sphere::Sphere;
-use vec3::Point3;
+use vec3::{Point3, Vec3};
 
-fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Color {
-    // If we've exceeded the ray bounce limit, no more light is gathered
+fn ray_color(r: &Ray, world: &dyn hittable::Hittable, depth: i32) -> Color {
     if depth <= 0 {
         return Color::new(0.0, 0.0, 0.0);
     }
 
-    let mut rec = HitRecord::new();
+    let mut rec = hittable::HitRecord::new();
     if world.hit(r, 0.001, common::INFINITY, &mut rec) {
         let mut attenuation = Color::default();
         let mut scattered = Ray::default();
@@ -53,80 +54,116 @@ fn ray_color(r: &Ray, world: &dyn Hittable, depth: i32) -> Color {
     (1.0 - t) * Color::new(1.0, 1.0, 1.0) + t * Color::new(0.5, 0.7, 1.0)
 }
 
-fn random_scene() -> HittableList {
-    let mut world = HittableList::new();
+// Fonction pour sauvegarder une image de la scène
+fn save_scene_image(cam: &Camera, world: &HittableList, image_width: i32, image_height: i32, samples_per_pixel: i32, max_depth: i32, file_name: &str) {
+    let file = File::create(file_name).expect("Unable to create file");
+    let mut writer = BufWriter::new(file);
 
+    writeln!(writer, "P3\n{} {}\n255", image_width, image_height).unwrap();
+
+    for j in (0..image_height).rev() {
+        eprint!("\rScanlines remaining: {} ", j);
+        for i in 0..image_width {
+            let mut pixel_color = Color::new(0.0, 0.0, 0.0);
+            for _ in 0..samples_per_pixel {
+                let u = (i as f64 + common::random_double()) / (image_width - 1) as f64;
+                let v = (j as f64 + common::random_double()) / (image_height - 1) as f64;
+                let r = cam.get_ray(u, v);
+                pixel_color += ray_color(&r, world, max_depth);
+            }
+            color::write_color(&mut writer, pixel_color, samples_per_pixel);
+        }
+    }
+    eprintln!("\nDone rendering: {}", file_name);
+}
+
+// Fonctions de création des scènes
+fn create_ground_scene() -> HittableList {
+    let mut world = HittableList::new();
     let ground_material = Rc::new(Lambertian::new(Color::new(0.5, 0.5, 0.5)));
     world.add(Box::new(Sphere::new(
         Point3::new(0.0, -1000.0, 0.0),
         1000.0,
         ground_material,
     )));
+    world
+}
 
-    let plane_material = Rc::new(Lambertian::new(Color::new(1.0, 0.5, 0.0))); // Couleur orange
-    let plane = Plane::new(
-        Point3::new(0.0, -1.0, 0.0), // Position de la surface plane sous les objets
-        Vec3::new(0.0, 1.0, 0.0),    // Normale vers le haut pour être visible
-        plane_material,
+fn create_cube_scene() -> HittableList {
+    let mut world = create_ground_scene();
+    let cube_material = Rc::new(Metal::new(Color::new(0.8, 0.3, 0.3), 0.0));
+    let cube = Cube::new(
+        Point3::new(-1.0, 0.0, -1.0),
+        Point3::new(1.0, 2.0, 1.0),
+        cube_material,
     );
-    world.add(Box::new(plane));
+    world.add(Box::new(cube));
+    world
+}
 
-    let plane_material = Rc::new(Lambertian::new(Color::new(1.0, 1.0, 0.0)));
-    let plane = Plane::new(
-        Point3::new(0.0, -1.0001, 0.3),
+fn create_cylinder_scene() -> HittableList {
+    let mut world = create_ground_scene();
+    let cylinder_material = Rc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
+    let cylinder = Cylinder::new(
+        Point3::new(-4.0, 0.0, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
+        0.8,
+        4.0,
+        cylinder_material,
+    );
+    world.add(Box::new(cylinder));
+    world
+}
+
+fn create_sphere_scene() -> HittableList {
+    let mut world = create_ground_scene();
+    let material3 = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.2));
+    world.add(Box::new(Sphere::new(
+        Point3::new(4.0, 1.0, 0.0),
+        1.0,
+        material3,
+    )));
+    world
+}
+
+fn create_plane_scene() -> HittableList {
+    let mut world = create_ground_scene();
+    let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
+    let rect = Rectangle::new(
+        Point3::new(0.0, -0.0001, -2.0),  // Positionnement plus bas
+        Vec3::new(2.0, 0.0, 0.0),        // Largeur
+        Vec3::new(0.0, 0.0, -2.0),        // Profondeur
         plane_material,
     );
-    world.add(Box::new(plane));
+    world.add(Box::new(rect));
+    world
+}
 
-    // for a in -11..11 {
-    //     for b in -11..11 {
-    //         let choose_mat = common::random_double();
-    //         let center = Point3::new(
-    //             a as f64 + 0.9 * common::random_double(),
-    //             0.2,
-    //             b as f64 + 0.9 * common::random_double(),
-    //         );
+fn render_all_individual_images(cam: &Camera, image_width: i32, image_height: i32, samples_per_pixel: i32, max_depth: i32) {
+    let cube_scene = create_cube_scene();
+    save_scene_image(cam, &cube_scene, image_width, image_height, samples_per_pixel, max_depth, "image/cube.ppm");
 
-    //         if (center - Point3::new(4.0, 0.2, 0.0)).length() > 0.9 {
-    //             if choose_mat < 0.8 {
-    //                 // Diffuse
-    //                 let albedo = Color::random() * Color::random();
-    //                 let sphere_material = Rc::new(Lambertian::new(albedo));
-    //                 world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
-    //             } else if choose_mat < 0.95 {
-    //                 // Metal
-    //                 let albedo = Color::random_range(0.5, 1.0);
-    //                 let fuzz = common::random_double_range(0.0, 0.5);
-    //                 let sphere_material = Rc::new(Metal::new(albedo, fuzz));
-    //                 world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
-    //             } else {
-    //                 // Glass
-    //                 let sphere_material = Rc::new(Dielectric::new(1.5));
-    //                 world.add(Box::new(Sphere::new(center, 0.2, sphere_material)));
-    //             }
-    //         }
-    //     }
-    // }
+    let cylinder_scene = create_cylinder_scene();
+    save_scene_image(cam, &cylinder_scene, image_width, image_height, samples_per_pixel, max_depth, "image/cylinder.ppm");
 
-    // let material1 = Rc::new(Dielectric::new(1.5));
-    // world.add(Box::new(Sphere::new(
-    //     Point3::new(0.0, 1.0, 0.0),
-    //     1.0,
-    //     material1,
-    // )));
+    let sphere_scene = create_sphere_scene();
+    save_scene_image(cam, &sphere_scene, image_width, image_height, samples_per_pixel, max_depth, "image/sphere.ppm");
 
-    // let albedo = Color::random_range(0.5, 1.0);
-    // let fuzz = common::random_double_range(0.0, 0.5);
-    // let sphere_material = Rc::new(Metal::new(albedo, fuzz));
+    let plane_scene = create_plane_scene();
+    save_scene_image(cam, &plane_scene, image_width, image_height, samples_per_pixel, max_depth, "image/plane.ppm");
 
-    // let material2 = Rc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
-    // world.add(Box::new(Sphere::new(
-    //     Point3::new(-4.0, 1.0, 0.0),
-    //     1.0,
-    //     material2,
-    // )));
+    let scene = create_world_with_scene();
+    save_scene_image(cam, &scene, image_width, image_height, samples_per_pixel, max_depth, "image/scene.ppm");
 
+    let flat_and_cube_scene = create_flat_plane_and_cube();
+    save_scene_image(cam, &flat_and_cube_scene, image_width, image_height, samples_per_pixel, max_depth, "image/flat_and_cube.ppm");
+
+}
+
+fn create_flat_plane_and_cube() -> HittableList {
+    let mut world = create_ground_scene();
+
+    // Ajout du cube
     let cube_material = Rc::new(Metal::new(Color::new(0.8, 0.3, 0.3), 0.0));
     let cube = Cube::new(
         Point3::new(-1.0, 0.0, -1.0),
@@ -135,7 +172,34 @@ fn random_scene() -> HittableList {
     );
     world.add(Box::new(cube));
 
-    let cylinder_material = Rc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1))); //(Color::new(0.7, 0.6, 0.5), 0.0));
+
+    // Ajout de la surface plane
+    let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
+    let rect = Rectangle::new(
+        Point3::new(0.0, -0.0001, -2.0),  
+        Vec3::new(2.0, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, -2.0), 
+        plane_material,
+    );
+    world.add(Box::new(rect));
+
+    world
+}
+
+fn create_world_with_scene() -> HittableList {
+    let mut world = create_ground_scene();
+
+    // Ajout du cube
+    let cube_material = Rc::new(Metal::new(Color::new(0.8, 0.3, 0.3), 0.0));
+    let cube = Cube::new(
+        Point3::new(-1.0, 0.0, -1.0),
+        Point3::new(1.0, 2.0, 1.0),
+        cube_material,
+    );
+    world.add(Box::new(cube));
+
+    // Ajout du cylindre
+    let cylinder_material = Rc::new(Lambertian::new(Color::new(0.4, 0.2, 0.1)));
     let cylinder = Cylinder::new(
         Point3::new(-4.0, 0.0, 0.0),
         Vec3::new(0.0, 1.0, 0.0),
@@ -145,6 +209,9 @@ fn random_scene() -> HittableList {
     );
     world.add(Box::new(cylinder));
 
+
+
+    // Ajout de la sphère
     let material3 = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.0));
     world.add(Box::new(Sphere::new(
         Point3::new(4.0, 1.0, 0.0),
@@ -152,102 +219,83 @@ fn random_scene() -> HittableList {
         material3,
     )));
 
+
+
+    // Ajout de la surface plane
+    let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
+    let rect = Rectangle::new(
+        Point3::new(0.0, -0.0001, -2.0),  
+        Vec3::new(2.0, 0.0, 0.0),
+        Vec3::new(0.0, 0.0, -2.0), 
+        plane_material,
+    );
+    world.add(Box::new(rect));
+
     world
 }
 
 fn main() {
-    // Image
+    // Récupération des arguments
+    let args: Vec<String> = env::args().collect();
 
-    const ASPECT_RATIO: f64 = 3.0 / 2.0;
+    if args.len() < 2 {
+        eprintln!("Usage: cargo run <object_name>");
+        eprintln!("object_name must be one of: sphere, cube, cylinder, flat, scene, flat_and_cube, all");
+        return;
+    }
+
+    // Configuration commune de la caméra et du rendu
+    const ASPECT_RATIO: f64 = 16.0 / 9.0;
     const IMAGE_WIDTH: i32 = 400;
-    const IMAGE_HEIGHT: i32 = (IMAGE_WIDTH as f64 / ASPECT_RATIO) as i32;
-    const SAMPLES_PER_PIXEL: i32 = 500;
+    const IMAGE_HEIGHT: i32 = ((IMAGE_WIDTH as f64) / ASPECT_RATIO) as i32;
+    const SAMPLES_PER_PIXEL: i32 = 100;
     const MAX_DEPTH: i32 = 50;
 
-    // World
-
-    let world = random_scene();
-
-    // Camera
-
-    // let lookfrom = Point3::new(13.0, 2.0, 3.0);
-    // let lookat = Point3::new(0.0, 0.0, 0.0);
-
-    // let lookfrom = Point3::new(5.0, 1.0, -6.0);
-    // let lookat = Point3::new(2.0, 1.0, -3.0);
-
-    // let vup = Point3::new(0.0, 1.0, 0.0);
-    // let dist_to_focus = 10.0;
-    // let aperture = 0.1;
-
-    // let lookfrom = Point3::new(0.0, 5.0, 0.0);  // Exemple de vue de haut
-    // let lookat = Point3::new(0.0, 0.0, 0.0);
-    // let vup = Vec3::new(0.0, 0.0, -1.0);  // Choix d'orientation correcte pour la vue de haut
-
-    // let dist_to_focus = 10.0;
-    //  let aperture = 0.1;
-
-    // let cam = Camera::new(
-    //     lookfrom,
-    //     lookat,
-    //     vup,
-    //     20.0,
-    //     ASPECT_RATIO,
-    //     aperture,
-    //     dist_to_focus,
-    // );
-
-    // let lookfrom = Point3::new(0.0, 7.0, -10.0); // La caméra est reculée et élevée
-    // let lookat = Point3::new(0.0, 0.0, 0.0); // La caméra regarde vers le centre de la scène
-    // let vup = Vec3::new(0.0, 1.0, 0.0); // "Up" reste aligné avec l'axe y pour une orientation correcte
-
-    // let dist_to_focus = 10.0;
-    // let aperture = 0.1;
-
-    // let cam = Camera::new(
-    //     lookfrom,
-    //     lookat,
-    //     vup,
-    //     45.0,         // Angle de champ de vision (45 degrés est un bon départ)
-    //     ASPECT_RATIO, // Ratio de l'image
-    //     aperture,
-    //     dist_to_focus,
-    // );
-
-    let lookfrom = Point3::new(0.0, 7.0, -10.0); // La caméra est reculée et élevée pour capturer le plan
-    let lookat = Point3::new(0.0, 0.0, 0.0); // La caméra regarde vers le centre de la scène
-    let vup = Vec3::new(0.0, 1.0, 0.0); // "Up" reste aligné avec l'axe y pour une orientation correcte
-
+    let lookfrom = Point3::new(-6.0, 4.0, -10.0);
+    let lookat = Point3::new(0.0, 1.0, 0.0);
+    let vup = Vec3::new(0.0, 1.0, 0.0);
     let dist_to_focus = 10.0;
-    let aperture = 0.1;
-
-    let cam = Camera::new(
+    let aperture = 0.0;
+    let camera = Camera::new(
         lookfrom,
         lookat,
         vup,
-        45.0,         // Angle de champ de vision (45 degrés est un bon départ)
-        ASPECT_RATIO, // Ratio de l'image
+        20.0,
+        ASPECT_RATIO,
         aperture,
         dist_to_focus,
     );
 
-    // Render
+    let object_name = &args[1];
 
-    print!("P3\n{} {}\n255\n", IMAGE_WIDTH, IMAGE_HEIGHT);
-
-    for j in (0..IMAGE_HEIGHT).rev() {
-        eprint!("\rScanlines remaining: {} ", j);
-        for i in 0..IMAGE_WIDTH {
-            let mut pixel_color = Color::new(0.0, 0.0, 0.0);
-            for _ in 0..SAMPLES_PER_PIXEL {
-                let u = (i as f64 + common::random_double()) / (IMAGE_WIDTH - 1) as f64;
-                let v = (j as f64 + common::random_double()) / (IMAGE_HEIGHT - 1) as f64;
-                let r = cam.get_ray(u, v);
-                pixel_color += ray_color(&r, &world, MAX_DEPTH);
+    if object_name == "all" {
+        render_all_individual_images(&camera, IMAGE_WIDTH, IMAGE_HEIGHT, SAMPLES_PER_PIXEL, MAX_DEPTH);
+    } else {
+        let image_name = match object_name.as_str() {
+            "sphere" => "image/sphere.ppm",
+            "cube" => "image/cube.ppm",
+            "cylinder" => "image/cylinder.ppm",
+            "flat" => "image/flat-plane.ppm",
+            "scene" => "image/scene.ppm",
+            "flat_and_cube" => "image/flat_and_cube.ppm",
+            _ => {
+                eprintln!("Error: Unknown object '{}'", object_name);
+                eprintln!("object_name must be one of: sphere, cube, cylinder, flat, scene, flat_and_cube, all");
+                return;
             }
-            color::write_color(&mut io::stdout(), pixel_color, SAMPLES_PER_PIXEL);
-        }
-    }
+        };
 
-    eprint!("\nDone.\n");
+        let world = match object_name.as_str() {
+            "sphere" => create_sphere_scene(),
+            "cube" => create_cube_scene(),
+            "cylinder" => create_cylinder_scene(),
+            "flat" => create_plane_scene(),
+            "scene" => create_world_with_scene(),
+            "flat_and_cube" => create_flat_plane_and_cube(),
+            _ => unreachable!(),
+        };
+
+        // Sauvegarde l'image de l'objet demandé
+        save_scene_image(&camera, &world, IMAGE_WIDTH, IMAGE_HEIGHT, SAMPLES_PER_PIXEL, MAX_DEPTH, image_name);
+    }
 }
