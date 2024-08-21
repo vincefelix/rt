@@ -131,7 +131,7 @@ fn create_plane_scene() -> HittableList {
     // let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
     let plane_material = Rc::new(Dielectric::new(0.3));
     let rect = Rectangle::new(
-        Point3::new(0.0, -0.0001, -2.0),  // Positionnement plus bas
+        Point3::new(0.0, 1.0, -2.0),  // Positionnement plus bas
         Vec3::new(2.0, 0.0, 0.0),        // Largeur
         Vec3::new(0.0, 0.0, -2.0),        // Profondeur
         plane_material,
@@ -151,7 +151,7 @@ fn render_all_individual_images(cam: &Camera, image_width: i32, image_height: i3
     save_scene_image(cam, &sphere_scene, image_width, image_height, samples_per_pixel, max_depth, "image/sphere.ppm");
 
     let plane_scene = create_plane_scene();
-    save_scene_image(cam, &plane_scene, image_width, image_height, samples_per_pixel, max_depth, "image/plane.ppm");
+    save_scene_image(cam, &plane_scene, image_width, image_height, samples_per_pixel, max_depth, "image/flat-plane.ppm");
 
     let scene = create_world_with_scene();
     save_scene_image(cam, &scene, image_width, image_height, samples_per_pixel, max_depth, "image/scene.ppm");
@@ -178,7 +178,7 @@ fn create_flat_plane_and_cube() -> HittableList {
     // let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
     let plane_material = Rc::new(Dielectric::new(0.3));
     let rect = Rectangle::new(
-        Point3::new(0.0, -0.0001, -2.0),  
+        Point3::new(3.0, 1.0, -1.0),  
         Vec3::new(2.0, 0.0, 0.0),
         Vec3::new(0.0, 0.0, -2.0), 
         plane_material,
@@ -227,7 +227,7 @@ fn create_world_with_scene() -> HittableList {
     // let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
     let plane_material = Rc::new(Dielectric::new(0.3));
     let rect = Rectangle::new(
-        Point3::new(0.0, -0.0001, -2.0),  
+        Point3::new(6.0, 1.0, 0.0),  
         Vec3::new(2.0, 0.0, 0.0),
         Vec3::new(0.0, 0.0, -2.0), 
         plane_material,
@@ -260,7 +260,7 @@ fn main() {
     const SAMPLES_PER_PIXEL: i32 = 100;
     const MAX_DEPTH: i32 = 50;
 
-    let lookfrom = Point3::new(6.0, 8.0, -20.0);
+    let lookfrom = Point3::new(6.0, 12.0, -20.0);
     let lookat = Point3::new(0.0, 1.0, 0.0);
     let vup = Vec3::new(0.0, 1.0, 0.0);
     let dist_to_focus = 10.0;
