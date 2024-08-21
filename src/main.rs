@@ -261,7 +261,7 @@ fn main() {
     const MAX_DEPTH: i32 = 50;
 
     let lookfrom = Point3::new(6.0, 8.0, -20.0);
-    let lookat = Point3::new(-7.0, 1.0, 0.0);
+    let lookat = Point3::new(0.0, 1.0, 0.0);
     let vup = Vec3::new(0.0, 1.0, 0.0);
     let dist_to_focus = 10.0;
     let aperture = 0.0;
