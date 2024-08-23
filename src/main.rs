@@ -11,6 +11,7 @@ mod cylindre;
 mod hittable;
 mod hittable_list;
 mod material;
+mod light;
 // mod plane;
 mod ray;
 mod rectangle;
@@ -23,30 +24,40 @@ use cube::Cube;
 use cylindre::Cylinder;
 use hittable_list::HittableList;
 use material::{Dielectric, Lambertian, Metal};
-// use plane::Plane;
+use light::Light;
 use ray::Ray;
 use rectangle::Rectangle;
 use sphere::Sphere;
 use vec3::{Point3, Vec3};
 
-fn ray_color(r: &Ray, world: &dyn hittable::Hittable, depth: i32) -> Color {
+fn ray_color(r: &Ray, world: &dyn hittable::Hittable, depth: i32, lights: &[Light]) -> Color {
     if depth <= 0 {
         return Color::new(0.0, 0.0, 0.0);
     }
 
     let mut rec = hittable::HitRecord::new();
     if world.hit(r, 0.001, common::INFINITY, &mut rec) {
-        let mut attenuation = Color::default();
-        let mut scattered = Ray::default();
-        if rec
-            .mat
-            .as_ref()
-            .unwrap()
-            .scatter(r, &rec, &mut attenuation, &mut scattered)
-        {
-            return attenuation * ray_color(&scattered, world, depth - 1);
+        let mut total_light = Color::new(0.0, 0.0, 0.0);
+
+        for light in lights {
+            let light_dir = light.direction_to_light(&rec.p);
+            let light_intensity = light.get_intensity(light_dir.length());
+
+            // Vérification des ombres pour chaque lumière
+            let shadow_ray = Ray::new(rec.p, light_dir);
+            let in_shadow = world.hit(&shadow_ray, 0.001, common::INFINITY, &mut hittable::HitRecord::new());
+            if !in_shadow {
+                let dot = rec.normal.dot(&light_dir).max(0.0);
+                total_light += light.color * (dot * light_intensity);
+            }
         }
-        return Color::new(0.0, 0.0, 0.0);
+
+        let mut scattered = Ray::default();
+        let mut attenuation = Color::default();
+        if rec.mat.as_ref().unwrap().scatter(r, &rec, &mut attenuation, &mut scattered) {
+            return attenuation * ray_color(&scattered, world, depth - 1, lights) + total_light;
+        }
+        return total_light;
     }
 
     let unit_direction = vec3::unit_vector(r.direction());
@@ -54,12 +65,18 @@ fn ray_color(r: &Ray, world: &dyn hittable::Hittable, depth: i32) -> Color {
     (1.0 - t) * Color::new(1.0, 1.0, 1.0) + t * Color::new(0.5, 0.7, 1.0)
 }
 
-// Fonction pour sauvegarder une image de la scène
+
 fn save_scene_image(cam: &Camera, world: &HittableList, image_width: i32, image_height: i32, samples_per_pixel: i32, max_depth: i32, file_name: &str) {
     let file = File::create(file_name).expect("Unable to create file");
     let mut writer = BufWriter::new(file);
 
     writeln!(writer, "P3\n{} {}\n255", image_width, image_height).unwrap();
+
+    // Create lights array here
+    let lights = [
+        Light::new(Point3::new(-10.0, 10.0, -10.0), 0.2, Vec3::new(1.0, 1.0, 1.0)),
+        // Add more lights if needed
+    ];
 
     for j in (0..image_height).rev() {
         eprint!("\rScanlines remaining: {} ", j);
@@ -69,13 +86,15 @@ fn save_scene_image(cam: &Camera, world: &HittableList, image_width: i32, image_
                 let u = (i as f64 + common::random_double()) / (image_width - 1) as f64;
                 let v = (j as f64 + common::random_double()) / (image_height - 1) as f64;
                 let r = cam.get_ray(u, v);
-                pixel_color += ray_color(&r, world, max_depth);
+                // Pass the lights array as reference
+                pixel_color += ray_color(&r, world, max_depth, &lights);
             }
             color::write_color(&mut writer, pixel_color, samples_per_pixel);
         }
     }
     eprintln!("\nDone rendering: {}", file_name);
 }
+
 
 // Fonctions de création des scènes
 fn create_ground_scene() -> HittableList {
@@ -131,7 +150,7 @@ fn create_plane_scene() -> HittableList {
     // let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
     let plane_material = Rc::new(Dielectric::new(0.3));
     let rect = Rectangle::new(
-        Point3::new(0.0, 1.0, -2.0),  // Positionnement plus bas
+        Point3::new(0.0, 0.1, -2.0),  // Positionnement plus bas
         Vec3::new(2.0, 0.0, 0.0),        // Largeur
         Vec3::new(0.0, 0.0, -2.0),        // Profondeur
         plane_material,
@@ -178,7 +197,7 @@ fn create_flat_plane_and_cube() -> HittableList {
     // let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
     let plane_material = Rc::new(Dielectric::new(0.3));
     let rect = Rectangle::new(
-        Point3::new(3.0, 1.0, -1.0),  
+        Point3::new(3.0, 0.1, -1.0),  
         Vec3::new(2.0, 0.0, 0.0),
         Vec3::new(0.0, 0.0, -2.0), 
         plane_material,
@@ -227,7 +246,7 @@ fn create_world_with_scene() -> HittableList {
     // let plane_material = Rc::new(Metal::new(Color::new(0.7, 0.6, 0.5), 0.8));
     let plane_material = Rc::new(Dielectric::new(0.3));
     let rect = Rectangle::new(
-        Point3::new(6.0, 1.0, 0.0),  
+        Point3::new(6.0, 0.1, 0.0),  
         Vec3::new(2.0, 0.0, 0.0),
         Vec3::new(0.0, 0.0, -2.0), 
         plane_material,
