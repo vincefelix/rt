@@ -14,14 +14,16 @@ To run the ray tracer and render images, use the following command format:
 cargo run <object_name>
 ```
 ### Available object_name Values
-sphere: Renders a scene containing a sphere.
-cube: Renders a scene containing a cube.
-cylinder: Renders a scene containing a cylinder.
-flat: Renders a scene containing a flat plane.
-scene: Renders a complete scene with a sphere, cube, cylinder, and plane.
-flat_and_cube: Renders a scene containing a flat plane and a cube.
-all: Renders individual images for each of the above elements and a complete scene.
-Example Usage
+- **sphere**: Renders a scene containing a sphere.
+- **cube**: Renders a scene containing a cube.
+- **cylinder**: Renders a scene containing a cylinder.
+- **flat**: Renders a scene containing a flat plane.
+- **scene**: Renders a complete scene with a sphere, cube, cylinder, and plane.
+- **flat_and_cube**: Renders a scene containing a flat plane and a cube.
+- **all**: Renders individual images for each of the above elements and a complete scene.
+
+**Example Usage**
+
 To render a scene containing a sphere:
 
 ```

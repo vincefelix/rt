@@ -1,6 +1,6 @@
 use crate::hittable::{HitRecord, Hittable};
 use crate::ray::Ray;
-use crate::vec3::{Point3, Vec3}; // Assure-toi d'importer Vec3 et Point3
+use crate::vec3::{Point3, Vec3};
 use std::rc::Rc;
 use crate::material::Material;
 

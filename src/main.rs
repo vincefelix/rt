@@ -12,7 +12,6 @@ mod hittable;
 mod hittable_list;
 mod material;
 mod light;
-// mod plane;
 mod ray;
 mod rectangle;
 mod sphere;
