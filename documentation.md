@@ -89,7 +89,7 @@ To create new elements (like additional shapes or different scenes):
 Create a new function to define the new scene. For example:
 
 
-``` javascript
+``` rust
 fn create_custom_scene() -> HittableList {
     let mut world = HittableList::new();
     // Add objects to the world
@@ -101,7 +101,7 @@ fn create_custom_scene() -> HittableList {
 Add the new scene to the main function so it can be selected:
 
 
-``` javascript
+``` rust
 let world = match object_name.as_str() {
     "sphere" => create_sphere_scene(),
     "custom" => create_custom_scene(),  // Add this line
